@@ -33,10 +33,14 @@ const defaultSourceDir = join(repoRoot, "packages/desktop/mock-cdn");
 const defaultOutDir = join(repoRoot, "dist/remote-assets-github");
 const MANIFEST_PREFIX = "manifest-";
 const MANIFEST_SUFFIX = ".json";
+// GitHub Release 的资产列表按名称（忽略大小写）排序，与上传顺序无关。
+// 统一前缀把 remote assets 沉到发布页最后（"zz-" 排在 "zcodium-*" 之后），
+// 让安装包与更新元数据保持在前面。
+const REMOTE_ASSET_DISPLAY_PREFIX = "zz-";
 
 export function toGithubArtifactName(platformArch, componentId, version) {
   const safeVersion = String(version).replace(/[+/\\]/gu, "-");
-  return `${platformArch}__${componentId}__${safeVersion}.tar.gz`;
+  return `${REMOTE_ASSET_DISPLAY_PREFIX}${platformArch}__${componentId}__${safeVersion}.tar.gz`;
 }
 
 function readJsonFile(path) {
@@ -99,8 +103,8 @@ export function buildGithubAssetLayout(options = {}) {
   let totalBytes = 0;
 
   for (const platformArch of platforms) {
-    const manifestName = `${MANIFEST_PREFIX}${platformArch}${MANIFEST_SUFFIX}`;
-    const manifestPath = join(releaseDir, manifestName);
+    const sourceManifestName = `${MANIFEST_PREFIX}${platformArch}${MANIFEST_SUFFIX}`;
+    const manifestPath = join(releaseDir, sourceManifestName);
     if (!existsSync(manifestPath)) {
       throw new Error(`[publish-remote-assets] manifest not found: ${manifestPath}`);
     }
@@ -147,12 +151,13 @@ export function buildGithubAssetLayout(options = {}) {
       return { ...component, artifactPath: artifactName };
     });
 
+    const outputManifestName = `${REMOTE_ASSET_DISPLAY_PREFIX}${sourceManifestName}`;
     writeFileSync(
-      join(outDir, manifestName),
+      join(outDir, outputManifestName),
       `${JSON.stringify({ ...manifest, components }, null, 2)}\n`,
       "utf8",
     );
-    files.push(manifestName);
+    files.push(outputManifestName);
   }
 
   return { sourceDir, outDir, version: expectedVersion, platforms, files, totalBytes };

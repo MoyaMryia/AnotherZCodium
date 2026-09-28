@@ -83,9 +83,9 @@ test("publish script converts mock-cdn into flat GitHub release layout", () => {
   const result = buildGithubAssetLayout({ sourceDir, outDir, expectedVersion: VERSION });
 
   assert.deepEqual(result.platforms, ["darwin-arm64", "linux-x64"]);
-  const manifest = JSON.parse(readFileSync(join(outDir, "manifest-linux-x64.json"), "utf8"));
+  const manifest = JSON.parse(readFileSync(join(outDir, "zz-manifest-linux-x64.json"), "utf8"));
   const expectedArtifactName = toGithubArtifactName("linux-x64", "ripgrep", "v9.9.9+aaa111bbb222");
-  assert.equal(expectedArtifactName, "linux-x64__ripgrep__v9.9.9-aaa111bbb222.tar.gz");
+  assert.equal(expectedArtifactName, "zz-linux-x64__ripgrep__v9.9.9-aaa111bbb222.tar.gz");
   assert.equal(
     manifest.components[0].artifactPath,
     expectedArtifactName,
@@ -103,10 +103,13 @@ test("publish script converts mock-cdn into flat GitHub release layout", () => {
   );
 
   for (const name of readdirSync(outDir)) {
+    assert.ok(name.startsWith("zz-"), `发布资产必须带 zz- 排序前缀: ${name}`);
     assert.ok(!name.includes("/"), `asset 名不得含 /: ${name}`);
     assert.ok(!name.includes("+"), `asset 名不得含 +: ${name}`);
   }
-  for (const manifestName of readdirSync(outDir).filter((name) => name.startsWith("manifest-"))) {
+  for (const manifestName of readdirSync(outDir).filter((name) =>
+    name.startsWith("zz-manifest-"),
+  )) {
     const current = JSON.parse(readFileSync(join(outDir, manifestName), "utf8"));
     for (const component of current.components) {
       assert.ok(
@@ -128,8 +131,8 @@ test("publish script supports platform filtering", () => {
   });
 
   assert.deepEqual(result.platforms, ["linux-x64"]);
-  assert.ok(existsSync(join(outDir, "manifest-linux-x64.json")));
-  assert.ok(!existsSync(join(outDir, "manifest-darwin-arm64.json")));
+  assert.ok(existsSync(join(outDir, "zz-manifest-linux-x64.json")));
+  assert.ok(!existsSync(join(outDir, "zz-manifest-darwin-arm64.json")));
 });
 
 test("publish script rejects missing component artifacts", () => {
@@ -155,6 +158,15 @@ test("publish script rejects component sha256 mismatch", () => {
       buildGithubAssetLayout({ sourceDir, outDir: join(root, "out"), expectedVersion: VERSION }),
     /sha256 mismatch/u,
   );
+});
+
+test("client manifest candidates prefer the zz- layout and keep the legacy fallback", async () => {
+  const { buildRemoteAssetManifestFileCandidates } =
+    await import("../../server/src/remote/remoteAssetCache.ts");
+  assert.deepEqual(buildRemoteAssetManifestFileCandidates("linux-x64"), [
+    "zz-manifest-linux-x64.json",
+    "manifest-linux-x64.json",
+  ]);
 });
 
 test("flat layout downloads and materializes through the remote asset loader", async () => {
