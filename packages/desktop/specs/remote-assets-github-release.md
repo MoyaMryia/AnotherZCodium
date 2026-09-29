@@ -33,6 +33,13 @@
   - 组件候选：`<base>/<artifactPath>`（`zz-` 扁平名，直接命中；tag 带 `v` 前缀时不会产生父级探测）。
   - manifest 的 `appVersion` 与当前 app 版本不一致时，加载器按原有校验拒绝，避免把旧版本资源装入新客户端。
 
+## 开箱即用（构建内置源）
+
+- release workflow 构建桌面端时注入 `ZCODIUM_REMOTE_ASSET_CDN_BASE_URL`（本仓库该 tag 的 `releases/download/<tag>`），编译期写入 main 进程；安装版开箱即可连接 WSL/SSH，不需要用户配置环境变量。
+- `resolveRemoteCdnBaseUrls` 解析优先级：用户显式 `ZCODE_REMOTE_ASSET_CDN_BASE_URL` > 构建内置源 > 官方 CDN（仅此路径受 marketplace 开关控制）。内置源与用户源都属自有分发，不经过官方服务开关与官方出口策略。
+- fork 构建时地址由 `github.repository` 决定，天然指向 fork 自己的 Release 资产。
+- dev/本地构建不注入内置源，仍走 mock-cdn 或显式配置。
+
 ## CI
 
 - release workflow 的 `remote-assets` job：`pnpm prepare:remote-assets` → `node scripts/publish-remote-assets.mjs --out dist/remote-assets-github` → `gh release upload <tag> --clobber`（带重试）。
@@ -44,3 +51,4 @@
 2. 加载链路测试：本地 HTTP 服务扁平布局，`ensureRemoteReleaseDirFromCdn` 能按 manifest 下载、校验并物化到 `releases/<version>/<platform>/<mount>`。
 3. `pnpm typecheck`、`pnpm lint`、架构检查通过；release workflow YAML 语法合法。
 4. 版本对齐：`ZCODE_APP_VERSION=<audit 版本>` 构建出的 remote assets，其 `manifest.appVersion` 与 server bundle 的 `--version` 输出都等于该版本；未设置时回退 `package.json` 版本。
+5. 开箱即用：`ZCODIUM_REMOTE_ASSET_CDN_BASE_URL` 注入后，发布版无需任何用户配置即可解析出远程资源源；用户显式 `ZCODE_REMOTE_ASSET_CDN_BASE_URL` 仍优先于内置源。
