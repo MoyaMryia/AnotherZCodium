@@ -56,7 +56,7 @@ import {
   buildTaskChangeSummary,
   createHostApiNetworkTransport,
   createSettingServiceWithMigrations,
-  IAstrBotBridgeService,
+  getAstrBotBridgeProvider,
   getAppConfigDir,
   OffPeakModelUnavailableError,
   OffPeakPermanentDispatchError,
@@ -1865,7 +1865,8 @@ let activeBotsBridge: {
  */
 async function startBotsBridge(services: ServiceCollection): Promise<void> {
   const botsService = services.getOptional(IBotsService);
-  const astrBotProvider = services.getOptional(IAstrBotBridgeService);
+  // 传输控制面走专用 getter，不经 ServiceCollection（否则会暴露到通用 RPC）。
+  const astrBotProvider = getAstrBotBridgeProvider(services);
   if (!botsService || !astrBotProvider) {
     return;
   }

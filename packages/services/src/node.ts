@@ -123,14 +123,12 @@ export type {
 } from "./cua-permission-broker/index.js";
 export { createBotsService } from "./bots/botsService.js";
 export { createAstrBotBotProvider } from "./bots/providers/astrbotProvider.js";
-export type {
-  AstrBotProvider,
-  AstrBotProviderOptions,
-} from "./bots/providers/astrbotProvider.js";
-export { IAstrBotBridgeService } from "./bots/astrbotBridgePort.js";
+export type { AstrBotProvider, AstrBotProviderOptions } from "./bots/providers/astrbotProvider.js";
+// desktop 的 host 只需要传输类型与专用 getter。BotsDeliveryLog 类、BOTS_DELIVERY_WINDOW、
+// BotsDeliveryRecord 以及 IAstrBotBridgeService 描述符都是 provider 私有实现，不再提升为
+// 包公开 API：否则后续调整窗口/ack 策略会被外部消费者牵制（评审中优先级）。
 export type { AstrBotBridgeTransport } from "./bots/astrbotBridgePort.js";
-export { BotsDeliveryLog, BOTS_DELIVERY_WINDOW } from "./bots/botsDeliveryLog.js";
-export type { BotsDeliveryRecord, BotsDeliveryReplay } from "./bots/botsDeliveryLog.js";
+export type { BotsDeliveryReplay } from "./bots/botsDeliveryLog.js";
 export { createFileWatcherService } from "./fileWatcher/fileWatcherService.js";
 export { createOAuthService } from "./oauth/oauthService.js";
 export { createOAuthProviderLogoutHandler } from "./oauth/oauthProviderLogout.js";
@@ -317,7 +315,6 @@ import {
 import { createLocalConversationShareArtifactSource } from "./conversation-share/conversationShareArtifactSource.js";
 import { ConversationShareHttpClient } from "./conversation-share/conversationShareHttpClient.js";
 import { IBotsService } from "./bots/bots.js";
-import { IAstrBotBridgeService } from "./bots/astrbotBridgePort.js";
 import { IFileWatcherService } from "./fileWatcher/fileWatcher.js";
 import { IOAuthService } from "./oauth/oauth.js";
 import { IUsageStatsService } from "./usage-stats/usageStats.js";
@@ -359,6 +356,7 @@ import { createZCodeTaskIndexSyncer } from "./zcode-agent/zcodeTaskIndexSyncer.j
 import { TaskIndexRepo } from "./session/taskIndexRepo.js";
 import { createBotsService } from "./bots/botsService.js";
 import { createAstrBotBotProvider } from "./bots/providers/astrbotProvider.js";
+import type { AstrBotProvider } from "./bots/providers/astrbotProvider.js";
 import { createBotRemoteWorkspaceService } from "./bots/botRemoteWorkspaceBridge.js";
 import type { SessionMessageSendRequested } from "#src/session/sessionMailbox.js";
 import { createFileWatcherService } from "./fileWatcher/fileWatcherService.js";
@@ -663,12 +661,25 @@ export type OffPeakRequestAuthBuilder = (
   ticketId: string,
 ) => Promise<{ apiKey: string; headers: Record<string, string> }>;
 const offPeakRequestAuthBuilders = new WeakMap<ServiceCollection, OffPeakRequestAuthBuilder>();
+// AstrBot 桥接的传输控制面（beginTurn/settleTurn/resolveResume/buildSnapshot/
+// ackDeliveryByFrameId）只服务于 host 内部的 loopback WS 传输，不是业务契约。
+// 修复依据：原先把 IAstrBotBridgeService register 进 ServiceCollection，
+// exposeOnChannelServer() 会把它连同这些内部控制方法一起暴露给 MessagePort 客户端
+//（桌面渲染进程 / 手机远控），内部传输控制面就成了 RPC 面。
+// 改用与 providerRuntimes / accountRequestAuthServices 相同的 WeakMap 侧表，
+// host 经专用 getter 取用，不进入通用 RPC Channel。
+const astrBotBridgeProviders = new WeakMap<ServiceCollection, AstrBotProvider>();
 
 /** Local Host 进程内能力；不会随 ServiceCollection 暴露到通用 RPC Channel。 */
 export function getAccountRequestAuthService(
   services: ServiceCollection,
 ): IAccountRequestAuthService | undefined {
   return accountRequestAuthServices.get(services);
+}
+
+/** AstrBot 桥接传输控制面；host 专用，不随 ServiceCollection 暴露到 RPC。 */
+export function getAstrBotBridgeProvider(services: ServiceCollection): AstrBotProvider | undefined {
+  return astrBotBridgeProviders.get(services);
 }
 
 /** Local Host 进程内的 Provisioning Source；不会把凭据通过通用 RPC 暴露给 Renderer。 */
@@ -2441,7 +2452,6 @@ export function createLocalServices(options: {
     .register(ICuaPermissionService, cuaPermissionService)
     .register(ICuaPipSessionService, cuaPipSessionService)
     .register(IConversationShareService, conversationShareService)
-    .register(IAstrBotBridgeService, astrBotProvider)
     .register(
       IBotsService,
       createBotsService({
@@ -2607,6 +2617,7 @@ export function createLocalServices(options: {
   // 稳定 socket），或用户显式授权流（restartHelper）拉起。启动即零 Helper 常驻。
 
   accountRequestAuthServices.set(services, accountRequestAuthService);
+  astrBotBridgeProviders.set(services, astrBotProvider);
   offPeakRequestAuthBuilders.set(services, buildOffPeakRequestAuthForTicket);
 
   providerRuntimes.set(services, providerRuntime);

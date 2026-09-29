@@ -895,7 +895,8 @@ const enUS: Record<string, string> = {
   "login.oauth.cancel": "Cancel",
   "login.oauth.retry": "Retry login",
   "login.expired.title": "Your configuration has expired",
-  "login.expired.description": "Your API key configuration is no longer valid. Please set it up again.",
+  "login.expired.description":
+    "Your API key configuration is no longer valid. Please set it up again.",
   "login.expired.action": "Configure again",
   "login.expired.restart": "Confirm and restart",
   "login.useApiKey": "Use API key",
@@ -2370,8 +2371,7 @@ const enUS: Record<string, string> = {
   "settings.officialServices.description":
     "These are Z.AI (ZCode) services. Turning one on connects to Z.AI servers — keep them off unless you need them.",
   "settings.officialServices.account.title": "Z.AI API configuration",
-  "settings.officialServices.account.desc":
-    "Configure a Z.AI API key to use related capabilities.",
+  "settings.officialServices.account.desc": "Configure a Z.AI API key to use related capabilities.",
   "settings.officialServices.codingPlan.title": "Plan and quota",
   "settings.officialServices.codingPlan.desc": "Check the Z.AI plan, quota and usage.",
   "settings.officialServices.feedback.title": "Z.AI feedback channel",
@@ -2465,8 +2465,7 @@ const enUS: Record<string, string> = {
   "settings.embeddedBrowserAllowInsecureCertificatesSavedHint":
     "Certificate setting saved. Restart the app to take effect.",
   "settings.browser.data.section": "Browser data",
-  "settings.browser.desktopOnly":
-    "Browser data can only be managed in the ZCodium desktop app.",
+  "settings.browser.desktopOnly": "Browser data can only be managed in the ZCodium desktop app.",
   "settings.browser.import.title": "Import Chrome sign-in state",
   "settings.browser.import.description":
     "Bring your Chrome sign-in state into the built-in browser once, so the AI can open sites you are already signed in to and work more smoothly.",
@@ -2664,8 +2663,7 @@ const enUS: Record<string, string> = {
     "MCP authorization was not completed or timed out. Authorize again.",
   "settings.mcp.failure.official_origin_untrusted":
     "The MCP server URL failed the security check. The connection was blocked.",
-  "settings.mcp.failure.not_authenticated":
-    "No API key configured. Please configure one first.",
+  "settings.mcp.failure.not_authenticated": "No API key configured. Please configure one first.",
   "settings.mcp.failure.coding_plan_required":
     "No Coding Plan configured. Configure one in model settings first.",
   "settings.mcp.failure.server_not_found":
@@ -2844,8 +2842,7 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.startPlan.status.loginRequired": "Configure an API key to view",
   "settings.modelProvider.startPlan.status.expired": "Start Plan expired",
   "settings.modelProvider.startPlan.status.noPlan": "No available Start Plan",
-  "settings.modelProvider.startPlan.status.loginExpired":
-    "API key expired. Configure it again.",
+  "settings.modelProvider.startPlan.status.loginExpired": "API key expired. Configure it again.",
   "settings.modelProvider.startPlan.title": "{provider} - Coding Plan",
   "settings.modelProvider.startPlan.meta.today": "Today",
   "settings.modelProvider.startPlan.meta.tomorrow": "Tomorrow",
@@ -2884,8 +2881,7 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.codingPlan.status.loginRequired": "Not configured",
   "settings.modelProvider.codingPlan.status.disconnected": "Not connected",
   "settings.modelProvider.codingPlan.status.checking": "Checking",
-  "settings.modelProvider.codingPlan.status.notPurchased":
-    "Not configured",
+  "settings.modelProvider.codingPlan.status.notPurchased": "Not configured",
   "settings.modelProvider.codingPlan.status.purchased": "Subscribed",
   "settings.modelProvider.codingPlan.status.unavailable": "Fetch failed",
   "settings.modelProvider.codingPlan.status.teamExpired":
@@ -3095,8 +3091,7 @@ const enUS: Record<string, string> = {
     "From the selected provider tool-usage API: Network Search / Web Reader / Zread call counts.",
   "settings.usage.sourceProvider": "Source: {provider}",
   "settings.usage.billingBanner.title": "{provider} Coding Plan",
-  "settings.usage.billingBanner.description":
-    "Configure the {provider} API key to query usage.",
+  "settings.usage.billingBanner.description": "Configure the {provider} API key to query usage.",
   "settings.usage.billingBanner.compactDescription":
     "Configure the {provider} API key to sync usage.",
   "settings.usage.billingBanner.buy": "Configure Coding Plan",
@@ -3221,8 +3216,7 @@ const enUS: Record<string, string> = {
   "chat.planUsage.titleWithPlan": "{plan} Plan usage",
   "chat.planUsage.providerFallback": "Current provider",
   "chat.planUsage.open": "Details",
-  "chat.planUsage.noPlan":
-    "No active Coding Plan configuration.",
+  "chat.planUsage.noPlan": "No active Coding Plan configuration.",
   "chat.planUsage.contextWindow": "Current context window",
   "chat.planUsage.contextDetail": "{used} / {total}",
   "chat.planUsage.promptPool": "5-hour prompt pool",
@@ -5926,8 +5920,7 @@ const enUS: Record<string, string> = {
   "feedback.submit.addScreenshot": "Add screenshot",
   "feedback.submit.removeScreenshot": "Remove",
   "feedback.submit.contact.label": "Contact",
-  "feedback.submit.contact.hint":
-    "Optional; other contact details are fine too.",
+  "feedback.submit.contact.hint": "Optional; other contact details are fine too.",
   "feedback.submit.contact.placeholder": "example@domain.com / other contact",
   "feedback.submit.supplemental.title": "Additional information",
   "feedback.submit.module.label": "Module",
