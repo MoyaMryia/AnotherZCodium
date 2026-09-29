@@ -115,9 +115,9 @@ jobs:
           ### What changed vs ZCode
 
           - **All monitoring and telemetry removed** (~26k lines): ARMS RUM, OTLP reporting, crash collection, resource and network sampling, UI analytics - with regression checks so they cannot be reintroduced.
-          - **Official platform services disconnected**: account login, feedback upload, coding plans, official MCP credentials, plugin marketplace and remote client config are short-circuited before any request; feedback points to GitHub Issues.
-          - **No account system**: no login, no account concepts. Configure your own API key or a custom model provider and start working.
-          - **No purchase or upgrade prompts**: the purchase UI and related copy are removed; nothing pushes you to buy a plan.
+          - **Official platform services are opt-in and off by default**: account login, feedback upload, coding plans, official MCP credentials, plugin marketplace and remote client config stay disconnected until you enable the matching switch under Settings -> Z.AI services. With every switch off (the default), the app never contacts the official platform and reports nothing; feedback points to GitHub Issues. You can turn any switch off again at any time.
+          - **No mandatory account**: no sign-up wall and no forced login. New users configure their own API key or a custom model provider and start working; a browser sign-in entry appears only after you enable "Z.AI API configuration".
+          - **No purchase or upgrade prompts by default**: nothing pushes you to buy a plan; plan cards and purchase entries appear only after you enable the coding-plan switch, and can be turned off again at any time.
           - **No repository upload behavior**: snapshot packaging and upload logic removed, with guards against reintroduction.
           - **Open source and reviewable**: first-party code MIT, upstream Apache-2.0; removal reports for desktop, CLI and UI ship in the repository.
           - **Transparent builds**: installers are built by GitHub Actions from this repository, and in-app updates point to this repository's GitHub Releases.
@@ -149,9 +149,9 @@ jobs:
           ### 相对 ZCode 的改动
 
           - **移除全部监控与遥测**（约 2.6 万行）：ARMS RUM、OTLP 上报、崩溃采集、资源与网络采样、UI 埋点，并加了防回归检查，防止重新引入。
-          - **断开官方平台服务**：账号登录、反馈上传、编码套餐、官方 MCP 凭证、插件市场与客户端远端配置在请求前短路；反馈入口指向 GitHub Issues。
-          - **没有账号体系**：不需要登录，也没有任何账号概念。配置自己的 API Key 或自定义模型即可开始使用。
-          - **没有购买与升级引导**：购买界面与相关文案已移除，不会引导你购买套餐。
+          - **官方平台服务默认全部关闭，按开关选择开启**：账号登录、反馈上传、编码套餐、官方 MCP 凭证、插件市场与客户端远端配置在对应开关打开前保持断开；默认全关时应用不会连接官方平台，也不会上报任何数据。开关可在“设置 → Z.AI 服务”里随时打开或关闭。
+          - **没有强制账号体系**：不弹注册墙、不强制登录。首次启动可直接配置自己的 API Key 或自定义模型开始使用；只有打开“Z.AI API 配置”开关后，才会出现浏览器授权登录入口。
+          - **默认没有购买与升级引导**：不会主动引导你购买套餐；只有打开“套餐与额度”开关后才会显示套餐卡片与购买入口，并可随时关闭。
           - **移除仓库上传行为**：快照打包与上传逻辑已删除，并加了防回归保护。
           - **开源可复核**：第一方代码 MIT，上游代码 Apache-2.0；桌面端、CLI、UI 的移除报告随仓库发布。
           - **构建透明**：安装包由 GitHub Actions 从本仓库构建；应用内更新指向本仓库的 GitHub Releases。
@@ -190,13 +190,17 @@ jobs:
           - Update metadata: `latest*.yml`, `latest.json`
           NOTES
           sed -i "s/<VERSION>/${TAG#v}/g" /tmp/release-notes.md
-          # 自动生成版本差异 Changelog：对比最近的 tag（排除 ci 类提交），插入到标题之后
-          BASE_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+          # 自动生成版本差异 Changelog：对比最近的正式 tag（排除 ci 类提交），插入到标题之后。
+          # 审计/预发布 tag（v3.14.4-audit.20260929.2 这类）会被 draft 构建打在 main 上；
+          # 若让它们参与 describe，正式版的基线会切到 draft tag，Changelog 只剩一行。
+          # 只接受正式版 tag（v<semver>，无连字符）。
+          # 条目按 .github/changelog-zh.json 渲染为中英双语；缺翻译时附隐藏 TODO 注释。
+          BASE_TAG=$(git describe --tags --abbrev=0 --match 'v*' --exclude 'v*-*' "${TAG}^" 2>/dev/null || true)
           if [ -n "$BASE_TAG" ]; then
+            CHANGES=$(node scripts/render-release-changelog.mjs --from "$BASE_TAG" --to "$TAG")
             {
               echo "## Changelog (vs $BASE_TAG) / 更新日志（相对 $BASE_TAG）"
               echo ""
-              CHANGES=$(git log --no-merges --pretty='- %s (%h)' "$BASE_TAG..${TAG}" | grep -v '^- ci' || true)
               if [ -n "$CHANGES" ]; then
                 printf '%s\n' "$CHANGES"
               else
@@ -326,6 +330,9 @@ jobs:
           ZCODE_ENV: production
           # 文件名与应用版本带上完整审计版本（如 3.14.0-audit.20260922.6），不再只写 3.14.0。
           ZCODE_APP_VERSION: ${{ needs.release.outputs.version }}
+          # 内置远程资源默认源：指向本仓库该 tag 的 GitHub Release 资产（zz- 布局）。
+          # 安装后的客户端开箱即可连接 WSL/SSH，不再要求用户配置环境变量。
+          ZCODIUM_REMOTE_ASSET_CDN_BASE_URL: https://github.com/${{ github.repository }}/releases/download/${{ needs.release.outputs.tag }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: pnpm bundle:desktop -- --os ${{ matrix.target }} --arch ${{ matrix.arch }}
 
@@ -361,12 +368,67 @@ jobs:
           echo "::error::gh release upload failed after 3 attempts"
           exit 1
 
+  # remote runtime 资产（WSL/SSH/Docker 远端连接用）：本仓库构建后以 GitHub Release
+  # 扁平布局上传，客户端用显式自建源（ZCODE_REMOTE_ASSET_CDN_BASE_URL）加载。
+  # 与其他产物一致：上传失败则 release 保持 draft，避免出现半套资产。
+  remote-assets:
+    needs: release
+    if: ${{ inputs.build_artifacts }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare remote assets
+        env:
+          # 与 desktop job 相同：server bundle 与 manifest.appVersion 必须等于 app 版本，
+          # 否则客户端 appVersion 校验拒绝、远端部署版本检查反复不匹配。
+          ZCODE_APP_VERSION: ${{ needs.release.outputs.version }}
+        run: pnpm prepare:remote-assets
+
+      - name: Build GitHub release layout
+        env:
+          ZCODE_APP_VERSION: ${{ needs.release.outputs.version }}
+        run: node scripts/publish-remote-assets.mjs --out dist/remote-assets-github
+
+      - name: Upload remote assets to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(dist/remote-assets-github/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no remote asset files produced"
+            exit 1
+          fi
+          # GitHub API 偶发连接失败（runner 网络抖动），上传重试 3 次；--clobber 让重试可安全覆盖。
+          for attempt in 1 2 3; do
+            if gh release upload "$TAG" "${files[@]}" --clobber; then
+              exit 0
+            fi
+            echo "::warning::gh release upload failed (attempt $attempt/3), retrying in 10s"
+            sleep 10
+          done
+          echo "::error::gh release upload failed after 3 attempts"
+          exit 1
+
   # 只有 CLI 与全部桌面平台产物都上传成功才公开 release；任一构建失败则保持 draft，
   # 由人工排查后重跑或删除，避免不完整的版本出现在 Releases 与官网下载页。
   # keep_draft=true（上游审计自动构建的测试版）：即使全部成功也保持 draft，不公开、不进入自动更新。
   publish:
-    needs: [release, build, desktop]
-    if: ${{ always() && inputs.keep_draft != true && needs.release.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped') && (needs.desktop.result == 'success' || needs.desktop.result == 'skipped') }}
+    needs: [release, build, desktop, remote-assets]
+    if: ${{ always() && inputs.keep_draft != true && needs.release.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped') && (needs.desktop.result == 'success' || needs.desktop.result == 'skipped') && (needs['remote-assets'].result == 'success' || needs['remote-assets'].result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Publish release

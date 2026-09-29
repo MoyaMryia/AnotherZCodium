@@ -1132,7 +1132,7 @@ const enUS: Record<string, string> = {
   "treemapping.detail.directoryFiles": "{count} files",
   "diff.placeholder.badge": "UI placeholder",
   "diff.placeholder.description":
-    "This phase focuses on the right-side Diff panel shell first. Real Git services and command execution will be connected later.",
+    "This phase focuses on the end-side Diff panel shell first. Real Git services and command execution will be connected later.",
   "diff.placeholder.toast":
     "The Diff panel is still using UI placeholder mode for now because the Git service is not fully wired up yet.",
   "git.readonly": "Read-only",
@@ -2304,9 +2304,11 @@ const enUS: Record<string, string> = {
   "settings.locale.system": "System default",
   "settings.locale.zh-CN": "中文简体",
   "settings.locale.en-US": "English",
+  "settings.locale.fa-IR": "فارسی",
   "sidebar.settings.systemDefault": "System default",
   "sidebar.settings.locale.en-US": "English",
   "sidebar.settings.locale.zh-CN": "中文简体",
+  "sidebar.settings.locale.fa-IR": "فارسی",
   "sidebar.settings.interfaceZoom": "Interface zoom",
   "sidebar.settings.theme.light": "Light theme",
   "sidebar.settings.theme.zai-light": "Light theme",
@@ -2369,7 +2371,7 @@ const enUS: Record<string, string> = {
   "settings.officialServicesTitle": "Z.AI services",
   "settings.officialServices.title": "Z.AI service connections",
   "settings.officialServices.description":
-    "These are Z.AI (ZCode) services. Turning one on connects to Z.AI servers — keep them off unless you need them.",
+    "These are Z.AI (ZCode) services. Turning one on connects to Z.AI servers — keep them off unless you need them. Some features load at startup; restart the app after changing these switches.",
   "settings.officialServices.account.title": "Z.AI API configuration",
   "settings.officialServices.account.desc": "Configure a Z.AI API key to use related capabilities.",
   "settings.officialServices.codingPlan.title": "Plan and quota",
@@ -2903,6 +2905,9 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.codingPlan.description.unsupported":
     "This provider does not support Coding Plan status checks yet.",
   "settings.modelProvider.codingPlan.login": "Configure {provider} API key",
+  "settings.modelProvider.codingPlan.browserLogin": "Sign in via browser",
+  "settings.modelProvider.codingPlan.browserLoginHint":
+    'Browser sign-in did not complete. Make sure "Z.AI API configuration" is enabled under Settings → Z.AI services, then retry and finish the browser authorization.',
   "settings.modelProvider.codingPlan.connect": "Configure {provider}",
   "settings.modelProvider.codingPlan.disconnect": "Unlink",
   "settings.modelProvider.codingPlan.upgrade": "Configure",
@@ -3735,6 +3740,8 @@ const enUS: Record<string, string> = {
   "settings.plugins.marketplaces.refreshCatalogHint": "Refresh to load the Z.AI catalog.",
   "settings.plugins.marketplacePlugins.title": "Marketplace plugins",
   "settings.plugins.marketplacePlugins.empty": "No marketplace plugins found",
+  "settings.plugins.store.officialMarketplaceDisabled":
+    'The Z.AI official plugin marketplace is off. Enable "Z.AI marketplace and CDN" under Settings → Z.AI services.',
   "settings.plugins.marketplacePlugins.install": "Install",
   "settings.plugins.marketplacePlugins.installed": "Installed",
   "settings.plugins.marketplace.searchPlaceholder": "Search Plugins, Skills, MCPs...",

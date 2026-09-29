@@ -2161,9 +2161,11 @@ const zhCN: Record<string, string> = {
   "settings.locale.system": "系统默认",
   "settings.locale.zh-CN": "中文简体",
   "settings.locale.en-US": "English",
+  "settings.locale.fa-IR": "فارسی",
   "sidebar.settings.systemDefault": "系统默认",
   "sidebar.settings.locale.en-US": "English",
   "sidebar.settings.locale.zh-CN": "中文简体",
+  "sidebar.settings.locale.fa-IR": "فارسی",
   "sidebar.settings.interfaceZoom": "界面缩放",
   "sidebar.settings.theme.light": "浅色主题",
   "sidebar.settings.theme.zai-light": "浅色主题",
@@ -2225,7 +2227,7 @@ const zhCN: Record<string, string> = {
   "settings.officialServicesTitle": "Z.AI 服务",
   "settings.officialServices.title": "Z.AI 服务连接",
   "settings.officialServices.description":
-    "这些是 Z.AI（ZCode）的服务，打开后会连接 Z.AI 的服务器。如无必要，请保持关闭。",
+    "这些是 Z.AI（ZCode）的服务，打开后会连接 Z.AI 的服务器。如无必要，请保持关闭。部分服务在启动时加载，修改后需重启应用生效。",
   "settings.officialServices.account.title": "Z.AI API 配置",
   "settings.officialServices.account.desc": "配置 Z.AI API Key 并使用相关能力。",
   "settings.officialServices.codingPlan.title": "套餐与额度",
@@ -2711,6 +2713,9 @@ const zhCN: Record<string, string> = {
   "settings.modelProvider.codingPlan.description.unsupported":
     "当前供应商暂不支持 Coding Plan 状态检查。",
   "settings.modelProvider.codingPlan.login": "配置 {provider} API Key",
+  "settings.modelProvider.codingPlan.browserLogin": "通过浏览器登录",
+  "settings.modelProvider.codingPlan.browserLoginHint":
+    "浏览器登录未完成。请确认已在“设置 → Z.AI 服务”中打开“Z.AI API 配置”，再重试并完成浏览器授权。",
   "settings.modelProvider.codingPlan.connect": "配置 {provider}",
   "settings.modelProvider.codingPlan.disconnect": "解绑",
   "settings.modelProvider.codingPlan.upgrade": "配置",
@@ -3495,6 +3500,8 @@ const zhCN: Record<string, string> = {
   "settings.plugins.marketplaces.refreshCatalogHint": "刷新以加载 Z.AI 目录。",
   "settings.plugins.marketplacePlugins.title": "市场插件",
   "settings.plugins.marketplacePlugins.empty": "暂无市场插件",
+  "settings.plugins.store.officialMarketplaceDisabled":
+    "Z.AI 官方插件市场已关闭。可在“设置 → Z.AI 服务”中打开“Z.AI 插件市场与 CDN”。",
   "settings.plugins.marketplacePlugins.install": "安装",
   "settings.plugins.marketplacePlugins.installed": "已安装",
   "settings.plugins.marketplace.searchPlaceholder": "搜索插件、技能、MCP…",
