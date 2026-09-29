@@ -382,9 +382,15 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Prepare remote assets
+        env:
+          # 与 desktop job 相同：server bundle 与 manifest.appVersion 必须等于 app 版本，
+          # 否则客户端 appVersion 校验拒绝、远端部署版本检查反复不匹配。
+          ZCODE_APP_VERSION: ${{ needs.release.outputs.version }}
         run: pnpm prepare:remote-assets
 
       - name: Build GitHub release layout
+        env:
+          ZCODE_APP_VERSION: ${{ needs.release.outputs.version }}
         run: node scripts/publish-remote-assets.mjs --out dist/remote-assets-github
 
       - name: Upload remote assets to release
