@@ -25,6 +25,22 @@ jobs:
         with:
           fetch-depth: 1
 
+      # GITHUB_TOKEN 无权推送 .github/workflows 变更（GitHub 硬性限制），提交里混入这类文件会导致 push 整体被拒；
+      # 安装 pre-commit hook 在提交时剥离这些变更，保证 agent 的其他改动可正常推送。
+      - name: Strip workflow-file changes from commits
+        run: |
+          mkdir -p .git/hooks
+          cat > .git/hooks/pre-commit <<'HOOK'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if git diff --cached --name-only | grep -q '^\.github/workflows/'; then
+            echo "[pre-commit] 检测到 .github/workflows 变更，GITHUB_TOKEN 无权推送，已从本次提交移除："
+            git diff --cached --name-only -- '.github/workflows/'
+            git restore --staged -- '.github/workflows/'
+          fi
+          HOOK
+          chmod +x .git/hooks/pre-commit
+
       - name: Run assistant review
         uses: anomalyco/opencode/github@latest
         env:
