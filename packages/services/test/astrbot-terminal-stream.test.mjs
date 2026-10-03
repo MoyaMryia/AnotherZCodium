@@ -71,3 +71,26 @@ test(
     );
   },
 );
+
+// 恢复路径的源码契约：权限/问答应答成功后必须重新通知 started。
+// 这两处调用把「应答命令」的轮次流提升为任务流，并让 startedTask 阻止 host 在命令
+// 结束时提前 settle 收口（见 astrbotProvider 的 settleTurn / notifyTaskLifecycle）。
+// 历史：这两处曾随终态收口重构一起被误删，任务恢复后的出站会回到 awaiting_input
+// 的旧流而不是应答轮次。
+test("权限/问答应答恢复路径保留 started 通知", { skip: !source && "无法读取源码" }, () => {
+  if (!source) return;
+
+  // elicitation accept 分支内：started 必须在返回问答结果之前。
+  assert.match(
+    source,
+    /if \(action === "accept"\) \{[\s\S]*?notifyTaskLifecycle\?\.\(auth\.bot, actor, "started"\)[\s\S]*?return \[createCompletedElicitationOutbound/,
+    "elicitation accept 分支必须通知 started（否则恢复出站失去 stream 归属）",
+  );
+
+  // permission.respond 成功出站（permissionSubmitted）之前：started 必须在。
+  assert.match(
+    source,
+    /startTyping\(auth\.bot, message\.actor, auth\.context\.activeTaskId\);[\s\S]*?notifyTaskLifecycle\?\.\(auth\.bot, message\.actor, "started"\)[\s\S]*?"permissionDenied" : "permissionSubmitted"/,
+    "permission.respond 成功后必须通知 started（否则恢复出站失去 stream 归属）",
+  );
+});
