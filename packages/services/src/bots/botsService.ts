@@ -3378,9 +3378,6 @@ export function createBotsService(
     }
     if (action === "accept") {
       startTyping(auth.bot, actor, pending.taskId);
-      // 与 permission.respond 同理：问答提交后任务恢复，重新通知 started，
-      // 避免恢复后的出站失去 stream 归属。
-      providers[auth.bot.provider]?.notifyTaskLifecycle?.(auth.bot, actor, "started");
       // Bugfix: AskUserQuestion 只是在回复问题，不属于命令配置成功；这里保留原问答提交文案，避免误回 /status。
       return [createCompletedElicitationOutbound(actor, pending, auth.locale, action)];
     }
@@ -4063,140 +4060,144 @@ export function createBotsService(
         runningTasks.delete(event.taskId);
         liveStatusProgressByTaskId.delete(event.taskId);
         stopTyping(event.taskId);
-        providers[bot.provider]?.notifyTaskLifecycle?.(
-          bot,
-          actor,
-          event.type === "task_error" ? "failed" : "completed",
-        );
-        if (context.pendingElicitation?.taskId === event.taskId) {
-          clearPendingElicitationSelection(context.pendingElicitation);
-          await writeContext({ ...context, pendingElicitation: undefined });
-        }
-        const transientCard = transientInteractionCards.get(getActorContextKey(actor));
-        if (transientCard?.taskId === event.taskId) {
-          const pendingElicitation = context.pendingElicitation;
-          await finalizeTransientInteractionCard(
-            actor,
-            pendingElicitation
-              ? createCompletedElicitationOutbound(
-                  actor,
-                  pendingElicitation,
-                  await readMessageLocale(),
-                  "cancel",
-                )
-              : createOutbound(
-                  actor,
-                  event.type === "task_error"
-                    ? msg(await readMessageLocale(), "taskFailed", {
-                        message: event.error,
-                      })
-                    : msg(await readMessageLocale(), "received"),
-                ),
+        // 终态收口放在 finally：notifyTaskLifecycle 的终态分支会发出 status 终止符并删除
+        // 任务流，若在分支开头调用，后面的失败原因、变更摘要、「任务已完成。」与 transient
+        // card 收尾都会因找不到 stream 而落到 idFactory() 的新流上（orphan stream）。
+        // 约定：status 必须是该 binding 的最后一条帧；终态文案不得落在未 accepted 预告的流上。
+        const terminalPhase = event.type === "task_error" ? "failed" : "completed";
+        try {
+          if (context.pendingElicitation?.taskId === event.taskId) {
+            clearPendingElicitationSelection(context.pendingElicitation);
+            await writeContext({ ...context, pendingElicitation: undefined });
+          }
+          const transientCard = transientInteractionCards.get(getActorContextKey(actor));
+          if (transientCard?.taskId === event.taskId) {
+            const pendingElicitation = context.pendingElicitation;
+            await finalizeTransientInteractionCard(
+              actor,
+              pendingElicitation
+                ? createCompletedElicitationOutbound(
+                    actor,
+                    pendingElicitation,
+                    await readMessageLocale(),
+                    "cancel",
+                  )
+                : createOutbound(
+                    actor,
+                    event.type === "task_error"
+                      ? msg(await readMessageLocale(), "taskFailed", {
+                          message: event.error,
+                        })
+                      : msg(await readMessageLocale(), "received"),
+                  ),
+            );
+          }
+          // Bugfix: ZCode Agent 终态事件可能先于 task index/meta 落盘广播到 Bots。
+          // 如果这里立刻用旧 meta 更新 sidebar，随后列表再刷新到终态 meta，会出现状态/摘要跳一下。
+          // 因此终态广播前短重试读取一次稳定 meta，尽量用同一帧完成 UI 增量更新。
+          const completedTask = await readTerminalTaskMeta(context, event.taskId, event.type).catch(
+            () => null,
           );
-        }
-        // Bugfix: ZCode Agent 终态事件可能先于 task index/meta 落盘广播到 Bots。
-        // 如果这里立刻用旧 meta 更新 sidebar，随后列表再刷新到终态 meta，会出现状态/摘要跳一下。
-        // 因此终态广播前短重试读取一次稳定 meta，尽量用同一帧完成 UI 增量更新。
-        const completedTask = await readTerminalTaskMeta(context, event.taskId, event.type).catch(
-          () => null,
-        );
-        await broadcastTaskListChange(
-          context,
-          event.taskId,
-          event.type === "task_error" ? "error" : "completed",
-          {
-            ...(completedTask ? { task: completedTask } : {}),
-            ...(event.type === "task_error" ? { error: event.error } : {}),
-          },
-        );
-        streamSubscriptions.get(streamSubscriptionKey)?.dispose();
-        streamSubscriptions.delete(streamSubscriptionKey);
-        if (event.type === "task_error") {
-          if (supportsStreamingCardReply()) {
-            streamingCardStatus = "error";
-            if (!hasStreamingCardMessageText()) {
-              appendStreamingCardMessages([
+          await broadcastTaskListChange(
+            context,
+            event.taskId,
+            event.type === "task_error" ? "error" : "completed",
+            {
+              ...(completedTask ? { task: completedTask } : {}),
+              ...(event.type === "task_error" ? { error: event.error } : {}),
+            },
+          );
+          streamSubscriptions.get(streamSubscriptionKey)?.dispose();
+          streamSubscriptions.delete(streamSubscriptionKey);
+          if (event.type === "task_error") {
+            if (supportsStreamingCardReply()) {
+              streamingCardStatus = "error";
+              if (!hasStreamingCardMessageText()) {
+                appendStreamingCardMessages([
+                  msg(await readMessageLocale(), "taskFailed", {
+                    message: event.error,
+                  }),
+                ]);
+              }
+              await syncStreamingCardReply(event.type, true);
+              return;
+            }
+            await sendOutbound(
+              bot,
+              createOutbound(
+                actor,
                 msg(await readMessageLocale(), "taskFailed", {
                   message: event.error,
                 }),
-              ]);
-            }
-            await syncStreamingCardReply(event.type, true);
+              ),
+            );
             return;
           }
-          await sendOutbound(
-            bot,
-            createOutbound(
-              actor,
-              msg(await readMessageLocale(), "taskFailed", {
-                message: event.error,
-              }),
-            ),
-          );
-          return;
-        }
 
-        const mode = getMode();
-        const locale = await readMessageLocale();
-        const completedSnapshot = await zcodeTaskService
-          .getTaskSnapshot({
-            taskId: event.taskId,
-            workspacePath: context.workspacePath,
-            workspaceIdentity: context.workspaceIdentity,
-          })
-          .catch(() => null);
-        const latestTurnChangeSummary = readLatestAssistantTurnChangeSummary(completedSnapshot);
-        if (supportsStreamingCardReply()) {
-          const changeSummaryMessages = formatBotAssistantReplyBlocks(
-            createAssistantReplyBlocks([], new Map(), mode, latestTurnChangeSummary),
-            {
+          const mode = getMode();
+          const locale = await readMessageLocale();
+          const completedSnapshot = await zcodeTaskService
+            .getTaskSnapshot({
+              taskId: event.taskId,
+              workspacePath: context.workspacePath,
+              workspaceIdentity: context.workspaceIdentity,
+            })
+            .catch(() => null);
+          const latestTurnChangeSummary = readLatestAssistantTurnChangeSummary(completedSnapshot);
+          if (supportsStreamingCardReply()) {
+            const changeSummaryMessages = formatBotAssistantReplyBlocks(
+              createAssistantReplyBlocks([], new Map(), mode, latestTurnChangeSummary),
+              {
+                workspacePath: context.workspacePath,
+                locale,
+              },
+            );
+            if (changeSummaryMessages.length > 0) {
+              appendStreamingCardMessages(changeSummaryMessages);
+            }
+            streamingCardStatus = "completed";
+            await syncStreamingCardReply(event.type, true);
+            sentAnyAssistantReply = true;
+            return;
+          }
+          let replyMessages: string[] = [];
+          if (mode === "summary_changes") {
+            const replyBlocks = createAssistantReplyBlocks(
+              assistantParts,
+              toolCalls,
+              mode,
+              latestTurnChangeSummary,
+            );
+            replyMessages = formatBotAssistantReplyBlocks(replyBlocks, {
               workspacePath: context.workspacePath,
               locale,
-            },
-          );
-          if (changeSummaryMessages.length > 0) {
-            appendStreamingCardMessages(changeSummaryMessages);
+            });
+          } else {
+            await flushAssistantReplyBuffer(true);
+            const changeSummaryBlocks = createAssistantReplyBlocks(
+              [],
+              new Map(),
+              mode,
+              latestTurnChangeSummary,
+            );
+            replyMessages = formatBotAssistantReplyBlocks(changeSummaryBlocks, {
+              workspacePath: context.workspacePath,
+              locale,
+            });
           }
-          streamingCardStatus = "completed";
-          await syncStreamingCardReply(event.type, true);
-          sentAnyAssistantReply = true;
-          return;
-        }
-        let replyMessages: string[] = [];
-        if (mode === "summary_changes") {
-          const replyBlocks = createAssistantReplyBlocks(
-            assistantParts,
-            toolCalls,
-            mode,
-            latestTurnChangeSummary,
-          );
-          replyMessages = formatBotAssistantReplyBlocks(replyBlocks, {
-            workspacePath: context.workspacePath,
-            locale,
-          });
-        } else {
-          await flushAssistantReplyBuffer(true);
-          const changeSummaryBlocks = createAssistantReplyBlocks(
-            [],
-            new Map(),
-            mode,
-            latestTurnChangeSummary,
-          );
-          replyMessages = formatBotAssistantReplyBlocks(changeSummaryBlocks, {
-            workspacePath: context.workspacePath,
-            locale,
-          });
-        }
-        if (replyMessages.length === 0 && !sentAnyAssistantReply) {
-          await sendOutbound(
-            bot,
-            createOutbound(actor, locale === "en-US" ? "Task completed." : "任务已完成。"),
-          );
-          return;
-        }
-        for (const text of replyMessages) {
-          sentAnyAssistantReply = true;
-          await sendOutbound(bot, createOutbound(actor, text));
+          if (replyMessages.length === 0 && !sentAnyAssistantReply) {
+            await sendOutbound(
+              bot,
+              createOutbound(actor, locale === "en-US" ? "Task completed." : "任务已完成。"),
+            );
+            return;
+          }
+          for (const text of replyMessages) {
+            sentAnyAssistantReply = true;
+            await sendOutbound(bot, createOutbound(actor, text));
+          }
+        } finally {
+          providers[bot.provider]?.notifyTaskLifecycle?.(bot, actor, terminalPhase);
         }
       }
     };
@@ -6198,11 +6199,6 @@ export function createBotsService(
               },
             );
             startTyping(auth.bot, message.actor, auth.context.activeTaskId);
-            // 修复原因：权限应答成功后任务会立即恢复输出，但传输 provider 在
-            // awaiting_input 时已把任务流标记为暂停。这里重新通知 started，
-            // 让 provider 把当前轮次的 stream 提升为任务流并保留收口归属；
-            // 否则恢复后的每帧出站都落在新建的无主 stream 上（见 astrbotProvider）。
-            providers[auth.bot.provider]?.notifyTaskLifecycle?.(auth.bot, message.actor, "started");
             return [
               createOutbound(
                 message.actor,
